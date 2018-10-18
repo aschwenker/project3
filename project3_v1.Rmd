@@ -1,0 +1,177 @@
+---
+title: "DATA 606 - Project 3 - Data Science Skills"
+author: "Anne Schwenker and Kevin Benson"
+date: "October 21, 2018"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        theme: lumen
+        number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+In this project, we try to answer the question "“Which are the most valued data science skills?”
+
+The approache we took was to ...
+
+The data source was ...
+
+We used rvest and tm packages to extract data by web scraping and using text mining ...
+
+```{r message = FALSE}
+# load required libraries
+library(tidyRSS)
+library(RCurl)
+library(rvest)
+library(readr)
+library(knitr)
+library(tau)
+library(tm)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+```
+
+# Work Approach
+
+Communication tools: telephone, Slack
+
+Collaboration and sharing of code, documentation: GitHub
+
+We explored couple ideas ... first started with RSS feed from Google Alert ... issues with this ... turned to next idea ...
+
+# Data Collection
+
+What data collected, source, tools used to scrape web pages ...
+
+**assignment says data should be in relational db, in a set of normalized tables** >> what do we want to do / say?
+
+First read in the data ...
+
+```{r}
+# read in story titles from google news alert
+data_science_skills <-tidyfeed("https://www.google.com/alerts/feeds/00182648300908928214/18036739630504927351", sf = TRUE)
+names(data_science_skills)
+data_science_skills$item_link
+data_science_skills$item_content
+
+title_vector<-c(t(data_science_skills$item_content))
+title_vector
+```
+
+Now that we have a collection of text data, we can use the `tm` and `tau` package to do the word count.  We adapted code we found online  (<https://www.codementor.io/jhwatts2010/counting-words-with-r-ds35hzgmj>) for this part of the analysis.  In counting words, we want to focus on "content" words (conveying meaning) rather than syntax words (conveying grammar, sentence structure, etc.).  To do this, `tm` offers an option to exclude a common set of "stop words" from the word count.
+
+```{r}
+# remove stop words - T/F
+stop_words <- TRUE
+# list of stop words to exclude from word count
+sort(sample(tm::stopwords("SMART"), 100))
+```
+
+Next we use the `tau::textcnt` and `tm::scan_tokenizer` functions to build up the word count, after excluding the stop words.
+```{r}
+# remove stop words and tokenize text
+data <- tau::textcnt(
+    if (stop_words == TRUE) {
+        tm::removeWords(tm::scan_tokenizer(title_vector), tm::stopwords("SMART"))
+    } else {
+        tm::scan_tokenizer(title_vector)
+    },
+    method = "string", n = 1L, lower = 1L
+)
+data
+```
+
+# Data Tidying and Transformations
+
+Tidying steps to set up data frame
+
+Note that the result of the word count `data` is a list of word counts, with each element of the list corresponding to each [file, article, job posting] in the input.  We use the `ldply` function to split the list, make each element of the list a data frame, and then combine into a single data frame of word counts.
+
+```{r}
+# transform list into data frame and rename columns
+df <- data %>% ldply(data.frame) %>% rename("Word" = 1, "Frequency" = 2) 
+df
+```
+
+Next we select a minimum and maximum word count to use in selecting the word counts for our analysis.  The pros and cons of selecting large versus small:
+
+We choose min = [ ] and max = [ ].  Then we filter using `dplyr` and rename columns to arrive at our final data frame of words and word counts.
+
+```{r}
+# set minimum and maximum word frequency to display
+min <- 1 
+max <- 500 
+
+# filter based on min/max word frequency
+Results <- df %>% filter(Frequency > min & Frequency < max)
+Results
+```
+
+# Exploratory Data Analysis
+
+nice table
+
+pretty graph
+
+If we do job postings, maybe can show results by:
+- top states (CA, NY) 
+- top metro areas (SF, LA, NY, BOS)
+- salary range (a-b, m-n, x-y)
+
+```{r}
+# radar plot & save
+ggplot2::ggplot(Results, aes(x=Word, y=Frequency, fill=Word)) + 
+    geom_bar(width = 0.75,  stat = "identity", colour = "black", size = 1) + coord_polar(theta = "x") + 
+    xlab("") + ylab("") + ggtitle(paste0("Word Frequency ", min, "-", max, " in ", "data_science_skills")) + 
+    theme(legend.position = "none") + labs(x = NULL, y = NULL)
+
+# interactive plotly & save
+plotly::ggplotly(ggplot2::ggplot(Results, aes(x=Word, y=Frequency, fill=Word)) + 
+                     geom_bar(width = 0.75, stat = "identity", colour = "black", size = 1) + 
+                     xlab("") + ylab("") + ggtitle(paste0("Word Frequency ", min, "-", max, " in ", "data_science_skills")) + 
+                     theme(legend.position = "none") + labs(x = NULL, y = NULL) + 
+                     theme(plot.subtitle = element_text(vjust = 1), plot.caption = element_text(vjust = 1), 
+                           axis.text.x = element_text(angle = 90)) + 
+                     theme(panel.background = element_rect(fill = "honeydew1"), 
+                           plot.background = element_rect(fill = "antiquewhite"))) %>% 
+    config(displaylogo = F) %>% 
+    config(showLink = F)
+```
+
+Takeaways:
+
+* Most important skills include:
+    + abc
+    + xyz
+    + etc.
+* This seems to suggest ...
+    
+Caveats:
+
+* Based on methods, data sources, etc.
+* other limitations?
+
+# Conclusions
+
+From analysis:
+
+* finding1
+* finding2
+* finding3
+
+Lessons learned from working together:
+
+* Virtual team, used collaboration tools
+* Complementary skill sets, learned from each other
+* Efficient division of labor
+* Etc. etc.
+
+
