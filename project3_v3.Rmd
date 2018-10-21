@@ -1,7 +1,7 @@
 ---
 title: "DATA 606 - Project 3 - Data Science Skills"
 author: "Anne Schwenker and Kevin Benson"
-date: "October 22, 2018"
+date: "October 21, 2018"
 output: 
     html_document:
         toc: TRUE
