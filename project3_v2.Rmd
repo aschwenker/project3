@@ -1,0 +1,268 @@
+---
+title: "DATA 606 - Project 3 - Data Science Skills"
+author: "Anne Schwenker and Kevin Benson"
+date: "October 22, 2018"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        theme: lumen
+        number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Which are the most valued data science skills?
+
+In this project, we try to answer this question by examining which words describing data science skills appear most often in several data science sources.  In essence, we will use word frequency as a proxy measure for the value of data science skills: the higher the word frequency, the more valued the skill.  This approach relies on three key assumptions:
+
+* The sources that we examine are representative of the data science field.
+* Data science skills that are more highly valued will be discussed more often in these sources.
+* We can correctly map from the words that are used in our sources to the distinct skills described by the words.
+
+These assumptions should be highlighted, since we know that they are not totally correct.  First, the sources that we choose may bias or skew our sample results; for instance, a book on programming will tend to have many words relating to technical skills and analytics, rather than "soft skills" such as team work and communications.  Second, there are many other measures besides word count, such as salary information on job postings, that can be used as proxy measures; these other proxy measures give an alternative view that may very well give different results.  Third, a  single word may be used to describe different skills; for instance, "science" may relate to analytical skills or something else, depending on the context. 
+
+So to address the main question of our project, we start by answering a more specific question:  
+**"What words relating to data science skills occur most frequently in a couple of representative data science sources?"**  
+
+Once we have the answer to this specific question, we will see how that can be applied to answer the general question.
+
+# Working Approach
+
+## Team roles and collaboration
+
+We worked as a two-person team over the course of a week.  
+
+* **Roles**: We both contributed to the project, and jointly discussed ideas and decided on approach.  Our division of labor ended up as:  
+    + Anne focused on methods to scrape possible data sources and load the data
+    + Kevin focused on the word frequency analysis and the write-up
+
+* **Communication**: We generally touched base daily by telephone or Slack, in order to update each other on progress made, challenges, and next steps.
+
+* **Collaboration tools**: We shared R code, text files, and an R Markdown file using a project repository set up on GitHub, at <https://github.com/aschwenker/project3>.
+
+## Problem-solving approach
+
+Once we decided on the overall approach, we did some preliminary research online to see what tools and methods would be most effective for text mining and word frequency analysis.  We reviewed several approaches, and found that in order to implement our approach, we would need to use several packages.  The packages included:
+
+* Loading the data
+    + download RSS feed and extract data: `tidyRSS` package
+    + download a file from the internet: `readr` package
+    + extract text from a pdf file: `pdftools` package
+
+* Text mining the data
+    + tokenize a character vector: `tm` package
+    + pattern counting from character vectors: `tau` package
+
+```{r message = FALSE}
+# load packages
+library(tidyRSS)
+library(RCurl)
+library(rvest)
+library(readr)
+library(knitr)
+library(tau)
+library(tm)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(pdftools)
+```
+
+# Data Collection
+
+We decided to use a couple sources relating to data science for the word frequency analysis:
+
+* **RSS feed**: First, we set up a Google Alert RSS feed using the search terms "data+science+skills".  This does a Google search of articles on the internet containing the search terms, and summarizes the results in an RSS feed that we could access at:
+<https://www.google.com/alerts/feeds/00182648300908928214/18036739630504927351>
+
+* **Textbook**: Second, we decided to use the PDF version of the textbook "Automated Data Collection with R", which we found online at:
+<http://kek.ksu.ru/eos/WM/AutDataCollectR.pdf>
+
+Our logic was that the first source would represent stories in the general media about data science skills, while the second source would give a more academic or technical perspective.
+
+## RSS feed
+
+In order to access the RSS feed, we used the `tidyRSS::tidyfeed` function to read in the data.
+
+```{r}
+# read in google alert RSS feed
+data_science_skills <- tidyfeed("https://www.google.com/alerts/feeds/00182648300908928214/18036739630504927351", sf = TRUE)
+names(data_science_skills)
+data_science_skills$item_link
+data_science_skills$item_content
+
+# load story summaries
+title_vector <- c(t(data_science_skills$item_content))
+title_vector
+```
+
+Note that the content of the RSS feed is only story summaries (truncated after approximately 150-180 characters), so this will limit our word counts.
+
+Now that we have a collection of text data, we can use the `tm` and `tau` package to do the word count.  We adapted code we found online  (<https://www.codementor.io/jhwatts2010/counting-words-with-r-ds35hzgmj>) for this part of the analysis.  In counting the word frequencies, we want to focus on "content" words that convey meaning, rather than words that relate to syntax, grammar, pronouns, prepositions, etc.  To do this, `tm` offers an option to exclude a common set of "stop words" from the word count.
+
+```{r}
+# remove stop words
+stop_words <- TRUE
+# show list of stop words to exclude from word count
+sort(sample(tm::stopwords("SMART"), 100))
+```
+
+Next we use the `tm::scan_tokenizer` and `tau::textcnt` functions to build up the word count, after excluding the stop words.
+
+```{r}
+# tokenize the data
+data <- tm::scan_tokenizer(title_vector)
+# remove stop words
+data <- if (stop_words == TRUE) tm::removeWords(data, tm::stopwords("SMART"))
+# count words
+data1 <- tau::textcnt(data, method = "string", n = 1L, lower = 1L)
+str(data1)
+summary(data1)
+```
+
+## Textbook
+
+First we downloaded the PDF file of the book from the internet and saved it locally in order to do the analysis.  Given the size of the book and time required to download it, we've commented out the `download.file` command in the code below.  We also tried to save the PDF file in GitHub and download from there, but we encountered some difficulties, probably relating to the security protocol.
+
+```{r cache = TRUE}
+# download PDF of book from open website
+# download.file("http://kek.ksu.ru/eos/WM/AutDataCollectR.pdf", "./AutDataCollectR.pdf")
+text <- pdf_text("./AutDataCollectR.pdf")
+
+# OR try loading PDF from GitHub
+# but this doesn't seem to work
+# url <- "https://github.com/aschwenker/project3/blob/master/AutDataCollectR.pdf"
+# text <- pdf_text(getURL(url))
+```
+
+Next we apply the same procedure as above to tokenize the data and build up the word count, after excluding the stop words.
+
+```{r cache = TRUE}
+# tokenize the data
+data <- tm::scan_tokenizer(text)
+# remove stop words
+data <- if (stop_words == TRUE) tm::removeWords(data, tm::stopwords("SMART"))
+# count words
+data2 <- tau::textcnt(data, method = "string", n = 1L, lower = 1L)
+str(data2)
+summary(data2)
+```
+
+# Data Tidying and Transformations
+
+## RSS feed
+
+Upon reviewing the data, we notice that the result of the word count processing is a `textcnt` data types, not a data frame.  We use the `ldply` function to transform `data1` into a single data frame of word counts, and then rename the columns.
+
+```{r}
+# transform data into data frame and rename columns
+Results1 <- data1 %>% ldply(data.frame) %>% rename("Word" = 1, "Frequency" = 2) %>% arrange(desc(Frequency))
+Results1
+```
+
+In this case, because the RSS feed only gave us 5 summaries of articles, our word counts are relatively low.
+
+## Textbook
+
+Likewise, we start by converting `data2` into a data frame of word counts.
+
+```{r}
+# transform data into data frame and rename columns
+Results2 <- data2 %>% ldply(data.frame) %>% rename("Word" = 1, "Frequency" = 2) %>% arrange(desc(Frequency))
+str(Results2)
+summary(Results2)
+class(Results2)
+```
+
+In this case, the word counts are much higher (they came from a book, after all!), so let's filter the words based on their frequency.  We choose a minimum and maximum word count, filter using the min and max word count, and then rename the columns, to arrive at our final data frame.
+
+```{r}
+# set minimum and maximum word frequency to display
+min <- 200 
+max <- 500 
+
+# filter based on min/max word frequency
+Results2_f <- Results2 %>% filter(Frequency > min & Frequency <= max)
+Results2_f
+```
+
+# Exploratory Data Analysis
+
+####### THIS AND BELOW IS WHERE WE NEED TO WORK ON #####
+
+nice table
+
+pretty graph
+
+```{r}
+kable(Results1, align = "rl")
+```
+
+
+
+```{r}
+# radar plot & save
+ggplot2::ggplot(Results2_f, aes(x=Word, y=Frequency, fill=Word)) + 
+    geom_bar(width = 0.75,  stat = "identity", colour = "black", size = 0.5) + coord_polar(theta = "x") + 
+    ggtitle(paste0("Word Frequency ", min, "-", max, " in ", "Textbook")) + 
+    theme(legend.position = "none") + labs(x = NULL, y = NULL)
+
+# interactive plotly & save
+plotly::ggplotly(ggplot2::ggplot(Results2_f, aes(x=Word, y=Frequency, fill=Word)) + 
+                     geom_bar(width = 0.75, stat = "identity", colour = "black", size = 0.5) + 
+                     ggtitle(paste0("Word Frequency ", min, "-", max, " in ", "Textbook")) + 
+                     theme(legend.position = "none") + labs(x = NULL, y = NULL) + 
+                     theme(plot.subtitle = element_text(vjust = 1), plot.caption = element_text(vjust = 1), 
+                           axis.text.x = element_text(angle = 90)) + 
+                     theme(panel.background = element_rect(fill = "honeydew1"), 
+                           plot.background = element_rect(fill = "antiquewhite"))) %>% 
+    config(displaylogo = F) %>% 
+    config(showLink = F)
+```
+
+Takeaways:
+
+* The most important general skills include:
+    + Data
+    + science -> 
+    + business -> 
+    + learning ->
+    
+    + xyz
+    + etc.
+
+* This seems to suggest ...
+    
+Caveats:
+
+* Based on methods, data sources, etc.
+* other limitations?
+
+# Conclusions
+
+and your conclusions based on your analysis of the data. 
+
+description of challenges that you encountered, and recommendations for further analysis going forward.
+
+challenges:
+- dowloanding book from githyub
+- pulling in full story content from RSS
+
+From analysis:
+
+* finding1
+* finding2
+* finding3
+
+Lessons learned from working together:
+
+* Virtual team, used collaboration tools
+* Complementary skill sets, learned from each other
+* Efficient division of labor
+* Etc. etc.
+
+
