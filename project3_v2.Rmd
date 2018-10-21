@@ -86,21 +86,26 @@ Our logic was that the first source would represent stories in the general media
 
 ## RSS feed
 
-In order to access the RSS feed, we used the `tidyRSS::tidyfeed` function to read in the data.
+In order to access the RSS feed, we used the `tidyRSS::tidyfeed` function to read in the data. 
+
+this package takes the RSS XML and translates it into a dataframe where each tag is its own attribute. From this we reivewed the available attributes and chose to use hte item_content attribute for the word frequency. Note that the content of the RSS feed is only story summaries (truncated after approximately 150-180 characters), so this will limit our word counts.
 
 ```{r}
 # read in google alert RSS feed
 data_science_skills <- tidyfeed("https://www.google.com/alerts/feeds/00182648300908928214/18036739630504927351", sf = TRUE)
+# view available attributes
 names(data_science_skills)
+#review observations of these attributes
 data_science_skills$item_link
 data_science_skills$item_content
+```
+Next we needed the source text to be in vector format, so we took the item_content column and converted it into a vector that would easily work with the tm package to tokenize the data.
 
+```{r}
 # load story summaries
 title_vector <- c(t(data_science_skills$item_content))
 title_vector
 ```
-
-Note that the content of the RSS feed is only story summaries (truncated after approximately 150-180 characters), so this will limit our word counts.
 
 Now that we have a collection of text data, we can use the `tm` and `tau` package to do the word count.  We adapted code we found online  (<https://www.codementor.io/jhwatts2010/counting-words-with-r-ds35hzgmj>) for this part of the analysis.  In counting the word frequencies, we want to focus on "content" words that convey meaning, rather than words that relate to syntax, grammar, pronouns, prepositions, etc.  To do this, `tm` offers an option to exclude a common set of "stop words" from the word count.
 
@@ -156,7 +161,7 @@ summary(data2)
 
 ## RSS feed
 
-Upon reviewing the data, we notice that the result of the word count processing is a `textcnt` data types, not a data frame.  We use the `ldply` function to transform `data1` into a single data frame of word counts, and then rename the columns.
+The result of the word count processing is a `textcnt` data types, not a data frame.  We use the `ldply` function to transform `data1` into a single data frame of word counts, and then rename the columns so that we could create charts and graphs from the word frequency data frame. 
 
 ```{r}
 # transform data into data frame and rename columns
@@ -164,11 +169,11 @@ Results1 <- data1 %>% ldply(data.frame) %>% rename("Word" = 1, "Frequency" = 2) 
 Results1
 ```
 
-In this case, because the RSS feed only gave us 5 summaries of articles, our word counts are relatively low.
+In this case, because the RSS feed only gave us 5 summaries of articles, our word counts are relatively low. We had hoped to be able to use the article links to mine the full text associated with each link, but this challenge proved to be larger than we were able to address in the time frame of this project. 
 
 ## Textbook
 
-Likewise, we start by converting `data2` into a data frame of word counts.
+Likewise, we start by converting `data2` into a data frame of word counts so that we could create charts and graphs from the word frequency data frame. 
 
 ```{r}
 # transform data into data frame and rename columns
@@ -201,8 +206,6 @@ pretty graph
 ```{r}
 kable(Results1, align = "rl")
 ```
-
-
 
 ```{r}
 # radar plot & save
@@ -240,11 +243,12 @@ Takeaways:
 Caveats:
 
 * Based on methods, data sources, etc.
+Because the RSS field was limited to a summary of the article we were limited to words that were within the beginning of each link which greatly reduces the usefulness of this source. Ideally we would have access to the full text and be able to make better inferences from that.
+
 * other limitations?
 
 # Conclusions
-
-and your conclusions based on your analysis of the data. 
+From the RSS feed frequency chart we were able to discern how data science skills are being spoken by others. A large part of staying relevant in a field is to keep on top of the topics and ideas that others in that field are talking about. 
 
 description of challenges that you encountered, and recommendations for further analysis going forward.
 
@@ -257,6 +261,12 @@ From analysis:
 * finding1
 * finding2
 * finding3
+
+Future analysis:
+* mine many articles on data science and find a way to analyze this source to isolate those that are related to skills, data types or programs in order to bring more value from the frequency of the words. 
+
+* Create a dashboard of word frequency from the RSS feed so that a user interested in keeping up to date on the subject could quickly see the topics being discussed by others.
+
 
 Lessons learned from working together:
 
